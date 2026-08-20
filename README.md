@@ -63,6 +63,3 @@ If this app contributes to scientific work, cite the repository release you used
 
 > A. Elmanova, B. O. Jahn, M. Presselt, “Catching the π-Stacks: Prediction of Aggregate Structures of Porphyrin,” *J. Phys. Chem. A* **2024**, *128*, 9917–9926. https://doi.org/10.1021/acs.jpca.4c05969
 
-## License
-
-Released under the [MIT License](LICENSE).

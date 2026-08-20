@@ -2,6 +2,13 @@ cff-version: 1.2.0
 message: "If you use this software, please cite the repository release and acknowledge the methodological reference in README.md."
 title: "Dimer Browser"
 type: software
+authors:
+  - family-names: Elmanova
+    given-names: Anna
+  - family-names: Roy
+    given-names: Arghyadeb
+  - family-names: Presselt
+    given-names: Martin
 version: 1.0.0
 date-released: 2026-08-20
 license: MIT

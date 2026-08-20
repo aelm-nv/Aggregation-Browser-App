@@ -1,0 +1,30 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite the repository release and acknowledge the methodological reference in README.md."
+title: "Dimer Browser"
+type: software
+version: 1.0.0
+date-released: 2026-08-20
+license: MIT
+abstract: "A browser-based tool for systematic generation, inspection, and export of molecular dimer geometries."
+keywords:
+  - molecular dimers
+  - aggregate structures
+  - pi stacking
+  - computational chemistry
+references:
+  - type: article
+    title: "Catching the π-Stacks: Prediction of Aggregate Structures of Porphyrin"
+    authors:
+      - family-names: Elmanova
+        given-names: Anna
+      - family-names: Jahn
+        given-names: Burkhard O.
+      - family-names: Presselt
+        given-names: Martin
+    journal: "The Journal of Physical Chemistry A"
+    year: 2024
+    volume: 128
+    issue: 46
+    start: 9917
+    end: 9926
+    doi: 10.1021/acs.jpca.4c05969

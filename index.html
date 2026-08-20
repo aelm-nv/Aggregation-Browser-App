@@ -1,0 +1,1112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dimer Browser App</title>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script>
+    let __viewerReady = null;
+
+    function load3Dmol() {
+      if (window.$3Dmol) return Promise.resolve(window.$3Dmol);
+      if (__viewerReady) return __viewerReady;
+
+      const sources = [
+        "https://3Dmol.org/build/3Dmol-min.js",
+        "https://unpkg.com/3dmol/build/3Dmol-min.js"
+      ];
+
+      __viewerReady = new Promise((resolve, reject) => {
+        let i = 0;
+
+        const tryNext = () => {
+          if (window.$3Dmol) return resolve(window.$3Dmol);
+          if (i >= sources.length) {
+            return reject(new Error("Could not load 3Dmol.js. Check internet access or browser blocking."));
+          }
+
+          const s = document.createElement("script");
+          s.src = sources[i++];
+          s.async = true;
+          s.onload = () => window.$3Dmol ? resolve(window.$3Dmol) : tryNext();
+          s.onerror = tryNext;
+          document.head.appendChild(s);
+        };
+
+        tryNext();
+      });
+
+      return __viewerReady;
+    }
+  </script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background: #f6f7fb;
+      color: #222;
+    }
+
+    .wrap {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 16px;
+    }
+
+    .panel {
+      background: white;
+      border-radius: 14px;
+      padding: 14px;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.08);
+      overflow: hidden;
+    }
+
+    h1 {
+      font-size: 24px;
+      margin: 0 0 12px;
+    }
+
+    h2 {
+      font-size: 16px;
+      margin: 0 0 10px;
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      margin: 8px 0 4px;
+    }
+
+    input, select, textarea, button {
+      font: inherit;
+    }
+
+    input[type="text"],
+    input[type="number"],
+    select,
+    textarea {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 8px;
+      border: 1px solid #cfd5e3;
+      border-radius: 8px;
+    }
+
+    textarea {
+      min-height: 72px;
+      resize: vertical;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .row2 {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .btns {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 10px;
+      padding: 9px 12px;
+      cursor: pointer;
+      background: #1f6feb;
+      color: white;
+    }
+
+    button.secondary {
+      background: #6b7280;
+    }
+
+    button.ghost {
+      background: #e9eefc;
+      color: #1849b6;
+    }
+
+    .split {
+      display: grid;
+      grid-template-columns: 1fr 300px;
+      gap: 16px;
+    }
+
+    .split > div:first-child {
+      min-width: 0;
+    }
+
+    .viewer-toolbar {
+      position: relative;
+      z-index: 3;
+      background: white;
+      padding-bottom: 8px;
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    #viewer {
+      width: 100%;
+      height: 520px;
+      border-radius: 14px;
+      overflow: hidden;
+      background: #fff;
+      position: relative;
+      z-index: 1;
+      border: 1px solid #d8deea;
+    }
+
+    #viewer canvas {
+      display: block;
+      max-width: 100%;
+    }
+
+    #dimerList {
+      width: 100%;
+      height: 520px;
+      border: 1px solid #cfd5e3;
+      border-radius: 10px;
+      padding: 6px;
+      box-sizing: border-box;
+    }
+
+    .status {
+      margin-top: 12px;
+      padding: 10px;
+      border-radius: 10px;
+      background: #eef4ff;
+      font-size: 13px;
+      white-space: pre-wrap;
+    }
+
+    .muted {
+      color: #666;
+      font-size: 12px;
+    }
+
+    .tiny {
+      font-size: 11px;
+      color: #666;
+    }
+
+    .loaded-box {
+      margin-top: 8px;
+      padding: 8px 10px;
+      background: #f7f9fe;
+      border: 1px solid #dde5f4;
+      border-radius: 10px;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .ok {
+      color: #0f8a2c;
+      font-weight: 700;
+    }
+
+    .bad {
+      color: #b42318;
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Dimer Browser App</h1>
+
+    <div class="grid">
+      <div class="panel">
+        <h2>Monomers</h2>
+
+        <label>Monomer A (.xyz or .xyz.gz)</label>
+        <input id="fileA" type="file" accept=".xyz,.gz" />
+
+        <label>Monomer B (.xyz or .xyz.gz, optional)</label>
+        <input id="fileB" type="file" accept=".xyz,.gz" />
+
+        <div class="btns">
+          <button class="ghost" id="previewA">Preview loaded monomer A</button>
+          <button class="ghost" id="previewB">Preview loaded monomer B</button>
+        </div>
+
+        <div class="loaded-box" id="loadedInfo">
+          <div>A: <span class="bad">not loaded</span></div>
+          <div>B: <span class="bad">not loaded</span></div>
+        </div>
+
+        <h2 style="margin-top:16px;">Orientation</h2>
+
+        <div class="row2">
+          <div>
+            <label>Monomer</label>
+            <select id="whichMono">
+              <option>A</option>
+              <option>B</option>
+            </select>
+          </div>
+
+          <div>
+            <label>Center</label>
+            <select id="centerMode">
+              <option>centroid</option>
+              <option>atom A</option>
+              <option>ABCD centroid</option>
+              <option>none</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row2">
+          <div>
+            <label>A index (1-based)</label>
+            <input id="idxA" type="number" value="1" min="1" />
+          </div>
+          <div>
+            <label>B index</label>
+            <input id="idxB" type="number" value="2" min="1" />
+          </div>
+          <div>
+            <label>C index</label>
+            <input id="idxC" type="number" value="3" min="1" />
+          </div>
+          <div>
+            <label>D index</label>
+            <input id="idxD" type="number" value="4" min="1" />
+          </div>
+        </div>
+
+        <div class="btns">
+          <button class="ghost" id="previewSelectedMonomer">Preview selected monomer</button>
+          <button id="applyOrientation">Apply orientation</button>
+        </div>
+
+        <h2 style="margin-top:16px;">Grid generation</h2>
+
+        <div class="row">
+          <div>
+            <label>tx (comma list)</label>
+            <input id="tx" type="text" value="0" />
+          </div>
+          <div>
+            <label>ty</label>
+            <input id="ty" type="text" value="0" />
+          </div>
+          <div>
+            <label>tz</label>
+            <input id="tz" type="text" value="3.5" />
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label>rx</label>
+            <input id="rx" type="text" value="0" />
+          </div>
+          <div>
+            <label>ry</label>
+            <input id="ry" type="text" value="0" />
+          </div>
+          <div>
+            <label>rz</label>
+            <input id="rz" type="text" value="0,90,180,270" />
+          </div>
+        </div>
+
+        <div class="row2">
+          <div>
+            <label>Moved monomer</label>
+            <select id="moved">
+              <option>B</option>
+              <option>A</option>
+            </select>
+          </div>
+
+          <div>
+            <label>Clash scale</label>
+            <input id="clashScale" type="number" step="0.01" value="0.75" />
+          </div>
+        </div>
+
+        <div class="row2">
+          <div>
+            <label><input id="hetero" type="checkbox" /> Heterodimer (use monomer B)</label>
+          </div>
+          <div></div>
+        </div>
+
+        <div class="btns">
+          <button id="generate">Generate dimers</button>
+          <button class="secondary" id="exportSelected">Export selected</button>
+          <button class="secondary" id="exportAll">Export all</button>
+          <button class="secondary" id="exportZip">Export ZIP</button>
+        </div>
+
+        <div class="status" id="status">Load monomer A to begin.</div>
+        <div class="tiny">Runs fully in the browser. 3D viewer uses 3Dmol.js.</div>
+      </div>
+
+      <div class="panel">
+        <div class="split">
+          <div>
+            <div class="viewer-toolbar">
+              <button class="ghost" id="styleStick">Stick</button>
+              <button class="ghost" id="styleSphere">Sphere</button>
+              <button class="ghost" id="zoomBtn">Zoom</button>
+              <button class="ghost" id="toggleLabels">Atom labels</button>
+              <span class="muted" id="viewerLabel">No structure loaded</span>
+            </div>
+            <div id="viewer"></div>
+          </div>
+
+          <div>
+            <h2>Generated dimers</h2>
+            <select id="dimerList" size="24"></select>
+
+            <div class="btns">
+              <button class="ghost" id="previewDimer">Preview dimer</button>
+            </div>
+
+            <label>Details</label>
+            <textarea id="details" readonly></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const VDW = {
+      H:1.20, C:1.70, N:1.55, O:1.52, F:1.47,
+      P:1.80, S:1.80, Cl:1.75, Br:1.85, I:1.98,
+      Si:2.10, B:1.92, Na:2.27, K:2.75, Ca:2.31,
+      Li:1.82, Al:2.00, Fe:2.00, Cu:1.96, Zn:2.01,
+      Pt:2.10
+    };
+
+    const state = {
+      monoA: null,
+      monoB: null,
+      dimers: [],
+      viewer: null,
+      currentStyle: "stick",
+      showLabels: false,
+      currentModel: null
+    };
+
+    function setStatus(msg) {
+      document.getElementById("status").textContent = msg;
+      console.log(msg);
+    }
+
+    function vdwRadius(s) {
+      return VDW[s] || 1.70;
+    }
+
+    function escapeHtml(text) {
+      return String(text)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function updateLoadedInfo() {
+      const el = document.getElementById("loadedInfo");
+
+      const aText = state.monoA
+        ? `<span class="ok">${escapeHtml(state.monoA.name || "loaded")}</span>`
+        : `<span class="bad">not loaded</span>`;
+
+      const bText = state.monoB
+        ? `<span class="ok">${escapeHtml(state.monoB.name || "loaded")}</span>`
+        : `<span class="bad">not loaded</span>`;
+
+      el.innerHTML = `<div>A: ${aText}</div><div>B: ${bText}</div>`;
+    }
+
+    function parseXYZ(text) {
+      const rawLines = text.replace(/\r/g, "").split("\n");
+
+      if (rawLines.length < 2) {
+        throw new Error("XYZ too short");
+      }
+
+      const n = parseInt(rawLines[0].trim(), 10);
+      if (!Number.isFinite(n) || n <= 0) {
+        throw new Error("First line of XYZ must be a positive atom count");
+      }
+
+      const symbols = [];
+      const xyz = [];
+
+      for (let i = 2; i < rawLines.length; i++) {
+        const line = rawLines[i].trim();
+        if (!line) continue;
+
+        const p = line.split(/\s+/);
+        if (p.length < 4) continue;
+
+        const symbol = p[0];
+        const x = parseFloat(p[1]);
+        const y = parseFloat(p[2]);
+        const z = parseFloat(p[3]);
+
+        if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) {
+          continue;
+        }
+
+        symbols.push(symbol);
+        xyz.push([x, y, z]);
+
+        if (symbols.length === n) break;
+      }
+
+      if (symbols.length !== n) {
+        throw new Error(`Expected ${n} atom lines, but found ${symbols.length}`);
+      }
+
+      return { symbols, xyz, name: "" };
+    }
+
+    function toXYZ(symbols, coords, comment = "") {
+      const out = [String(symbols.length), comment];
+      for (let i = 0; i < symbols.length; i++) {
+        const [x, y, z] = coords[i];
+        out.push(`${symbols[i]} ${x.toFixed(8)} ${y.toFixed(8)} ${z.toFixed(8)}`);
+      }
+      return out.join("\n") + "\n";
+    }
+
+    function mean(points) {
+      const n = points.length;
+      const s = [0, 0, 0];
+      for (const p of points) {
+        s[0] += p[0];
+        s[1] += p[1];
+        s[2] += p[2];
+      }
+      return s.map(v => v / n);
+    }
+
+    function sub(a, b) {
+      return [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+    }
+
+    function dot(a, b) {
+      return a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
+    }
+
+    function norm(v) {
+      return Math.hypot(v[0], v[1], v[2]);
+    }
+
+    function unit(v) {
+      const n = norm(v);
+      if (n < 1e-12) throw new Error("Zero-length vector");
+      return [v[0]/n, v[1]/n, v[2]/n];
+    }
+
+    function cross(a, b) {
+      return [
+        a[1]*b[2] - a[2]*b[1],
+        a[2]*b[0] - a[0]*b[2],
+        a[0]*b[1] - a[1]*b[0]
+      ];
+    }
+
+    function centerCoords(xyz, mode, a, b, c, d) {
+      let ctr;
+
+      if (mode === "none") return xyz.map(p => [...p]);
+      if (mode === "centroid") ctr = mean(xyz);
+      else if (mode === "atom A") ctr = xyz[a];
+      else if (mode === "ABCD centroid") ctr = mean([xyz[a], xyz[b], xyz[c], xyz[d]]);
+      else ctr = mean(xyz);
+
+      return xyz.map(p => sub(p, ctr));
+    }
+
+    function rotationMatrixFromAxes(xAxis, zGuess) {
+      const ex = unit(xAxis);
+      const proj = sub(zGuess, ex.map(v => v * dot(zGuess, ex)));
+
+      if (norm(proj) < 1e-12) {
+        throw new Error("Second axis parallel to first");
+      }
+
+      const ez = unit(proj);
+      const ey = unit(cross(ez, ex));
+      const ez2 = unit(cross(ex, ey));
+
+      return [
+        [ex[0], ex[1], ex[2]],
+        [ey[0], ey[1], ey[2]],
+        [ez2[0], ez2[1], ez2[2]]
+      ];
+    }
+
+    function applyMatRow(p, M) {
+      return [dot(p, M[0]), dot(p, M[1]), dot(p, M[2])];
+    }
+
+    function orientMonomer(mono, a, b, c, d, centerMode) {
+      const xyz0 = centerCoords(mono.xyz, centerMode, a, b, c, d);
+      const xAxis = sub(xyz0[b], xyz0[a]);
+      const zGuess = sub(xyz0[d], xyz0[c]);
+      const M = rotationMatrixFromAxes(xAxis, zGuess);
+      return { ...mono, xyz: xyz0.map(p => applyMatRow(p, M)) };
+    }
+
+    function rotX(a) {
+      const r = a * Math.PI / 180;
+      const c = Math.cos(r), s = Math.sin(r);
+      return [[1,0,0],[0,c,-s],[0,s,c]];
+    }
+
+    function rotY(a) {
+      const r = a * Math.PI / 180;
+      const c = Math.cos(r), s = Math.sin(r);
+      return [[c,0,s],[0,1,0],[-s,0,c]];
+    }
+
+    function rotZ(a) {
+      const r = a * Math.PI / 180;
+      const c = Math.cos(r), s = Math.sin(r);
+      return [[c,-s,0],[s,c,0],[0,0,1]];
+    }
+
+    function matMul(A, B) {
+      const R = Array.from({ length: 3 }, () => [0,0,0]);
+      for (let i = 0; i < 3; i++) {
+        for (let j = 0; j < 3; j++) {
+          for (let k = 0; k < 3; k++) {
+            R[i][j] += A[i][k] * B[k][j];
+          }
+        }
+      }
+      return R;
+    }
+
+    function applyRotations(xyz, rx, ry, rz) {
+      const R = matMul(rotZ(rz), matMul(rotY(ry), rotX(rx)));
+      return xyz.map(p => [
+        R[0][0]*p[0] + R[0][1]*p[1] + R[0][2]*p[2],
+        R[1][0]*p[0] + R[1][1]*p[1] + R[1][2]*p[2],
+        R[2][0]*p[0] + R[2][1]*p[1] + R[2][2]*p[2]
+      ]);
+    }
+
+    function hasClash(symA, xyzA, symB, xyzB, scale) {
+      for (let i = 0; i < xyzA.length; i++) {
+        for (let j = 0; j < xyzB.length; j++) {
+          const dx = xyzA[i][0] - xyzB[j][0];
+          const dy = xyzA[i][1] - xyzB[j][1];
+          const dz = xyzA[i][2] - xyzB[j][2];
+          const dist = Math.hypot(dx, dy, dz);
+          const thresh = scale * (vdwRadius(symA[i]) + vdwRadius(symB[j]));
+          if (dist < thresh) return true;
+        }
+      }
+      return false;
+    }
+
+    function parseNumList(txt) {
+      if (!txt.trim()) return [0];
+      const vals = txt.split(/[\s,;]+/).filter(Boolean).map(Number);
+      if (!vals.length || vals.some(v => !Number.isFinite(v))) {
+        throw new Error(`Could not parse numeric list: "${txt}"`);
+      }
+      return vals;
+    }
+
+    async function ensureViewer() {
+      await load3Dmol();
+
+      if (!window.$3Dmol) {
+        throw new Error("3D viewer library not available");
+      }
+
+      if (!state.viewer) {
+        state.viewer = $3Dmol.createViewer("viewer", { backgroundColor: "white" });
+      }
+
+      return state.viewer;
+    }
+
+    async function renderStructure(symbols, xyz, label) {
+      const viewer = await ensureViewer();
+      viewer.clear();
+
+      const xyzText = toXYZ(symbols, xyz, label);
+      viewer.addModel(xyzText, "xyz");
+
+      state.currentModel = { symbols, xyz, label };
+
+      if (state.currentStyle === "sphere") {
+        viewer.setStyle({}, { sphere: { scale: 0.35 } });
+      } else {
+        viewer.setStyle({}, { stick: { radius: 0.16 } });
+      }
+
+      if (state.showLabels) addAtomLabels();
+
+      viewer.zoomTo();
+      viewer.render();
+      document.getElementById("viewerLabel").textContent = label;
+    }
+
+    async function setViewerStyle(style) {
+      state.currentStyle = style;
+      const viewer = await ensureViewer();
+
+      viewer.setStyle({});
+      if (style === "sphere") {
+        viewer.setStyle({}, { sphere: { scale: 0.35 } });
+      } else {
+        viewer.setStyle({}, { stick: { radius: 0.16 } });
+      }
+
+      if (state.showLabels) addAtomLabels();
+      else viewer.removeAllLabels();
+
+      viewer.render();
+    }
+
+    function addAtomLabels() {
+      const viewer = state.viewer;
+      if (!viewer || !state.currentModel) return;
+
+      viewer.removeAllLabels();
+
+      state.currentModel.xyz.forEach((p, i) => {
+        viewer.addLabel(String(i + 1), {
+          position: { x: p[0], y: p[1], z: p[2] },
+          backgroundOpacity: 0.55,
+          fontSize: 10,
+          inFront: true,
+          showBackground: true
+        });
+      });
+    }
+
+    async function toggleLabels() {
+      state.showLabels = !state.showLabels;
+      const btn = document.getElementById("toggleLabels");
+      btn.textContent = state.showLabels ? "Hide labels" : "Atom labels";
+
+      const viewer = await ensureViewer();
+      if (state.showLabels) addAtomLabels();
+      else viewer.removeAllLabels();
+      viewer.render();
+    }
+
+    async function readXYZFromInput(input) {
+      const file = input.files && input.files[0];
+      if (!file) return null;
+
+      let text;
+
+      if (file.name.toLowerCase().endsWith(".gz")) {
+        if ("DecompressionStream" in window) {
+          const ds = new DecompressionStream("gzip");
+          const decompressed = file.stream().pipeThrough(ds);
+          text = await new Response(decompressed).text();
+        } else {
+          throw new Error("This browser cannot read .gz files directly. Please unpack it first.");
+        }
+      } else {
+        text = await file.text();
+      }
+
+      const mono = parseXYZ(text);
+      mono.name = file.name;
+      return mono;
+    }
+
+    async function loadMonomer(which) {
+      const input = document.getElementById(which === "A" ? "fileA" : "fileB");
+
+      try {
+        const mono = await readXYZFromInput(input);
+        if (!mono) throw new Error(`No file selected for monomer ${which}`);
+
+        if (which === "A") {
+          state.monoA = mono;
+        } else {
+          state.monoB = mono;
+        }
+
+        updateLoadedInfo();
+        setStatus(`Loaded monomer ${which}: ${mono.name}`);
+      } catch (e) {
+        if (which === "A") {
+          state.monoA = null;
+        } else {
+          state.monoB = null;
+        }
+        updateLoadedInfo();
+        setStatus(`Load error for monomer ${which}: ${e.message}`);
+      }
+    }
+
+    async function previewMonomer(which) {
+      const mono = which === "A" ? state.monoA : state.monoB;
+
+      if (!mono) {
+        setStatus(`Monomer ${which} not loaded.`);
+        return;
+      }
+
+      await renderStructure(mono.symbols, mono.xyz, `Monomer ${which}: ${mono.name || ""}`);
+      setStatus(`Previewing monomer ${which}.`);
+    }
+
+    async function applyOrientationAction() {
+      try {
+        const which = document.getElementById("whichMono").value;
+        const mono = which === "A" ? state.monoA : state.monoB;
+
+        if (!mono) {
+          throw new Error(`Load monomer ${which} first`);
+        }
+
+        const n = mono.symbols.length;
+        const a = Number(document.getElementById("idxA").value) - 1;
+        const b = Number(document.getElementById("idxB").value) - 1;
+        const c = Number(document.getElementById("idxC").value) - 1;
+        const d = Number(document.getElementById("idxD").value) - 1;
+
+        if ([a, b, c, d].some(i => i < 0 || i >= n)) {
+          throw new Error(`Atom index out of range 1..${n}`);
+        }
+
+        const centerMode = document.getElementById("centerMode").value;
+        const out = orientMonomer(mono, a, b, c, d, centerMode);
+
+        if (which === "A") state.monoA = out;
+        else state.monoB = out;
+
+        updateLoadedInfo();
+        setStatus(`Applied orientation to monomer ${which}.`);
+      } catch (e) {
+        setStatus("Orientation error: " + e.message);
+      }
+    }
+
+    function choosePair() {
+      if (!state.monoA) throw new Error("Load monomer A first");
+
+      const hetero = document.getElementById("hetero").checked;
+
+      if (hetero) {
+        if (!state.monoB) {
+          throw new Error("Heterodimer selected but monomer B is not loaded");
+        }
+        return [state.monoA, state.monoB];
+      }
+
+      return [state.monoA, state.monoB || state.monoA];
+    }
+
+    function refreshDimerList() {
+      const list = document.getElementById("dimerList");
+      list.innerHTML = "";
+
+      state.dimers.forEach((d, i) => {
+        const m = d.meta;
+        const opt = document.createElement("option");
+        opt.value = String(i);
+        opt.textContent = `#${String(m.idx).padStart(4, "0")} tx=${m.tx} ty=${m.ty} tz=${m.tz} rx=${m.rx} ry=${m.ry} rz=${m.rz}`;
+        list.appendChild(opt);
+      });
+
+      if (state.dimers.length) {
+        list.selectedIndex = 0;
+        updateDetails();
+      } else {
+        document.getElementById("details").value = "";
+      }
+    }
+
+    function updateDetails() {
+      const idx = Number(document.getElementById("dimerList").value);
+      const d = state.dimers[idx];
+      document.getElementById("details").value = d ? JSON.stringify(d.meta, null, 2) : "";
+    }
+
+    function generateDimers() {
+      try {
+        const [monA, monB] = choosePair();
+
+        const txs = parseNumList(document.getElementById("tx").value);
+        const tys = parseNumList(document.getElementById("ty").value);
+        const tzs = parseNumList(document.getElementById("tz").value);
+        const rxs = parseNumList(document.getElementById("rx").value);
+        const rys = parseNumList(document.getElementById("ry").value);
+        const rzs = parseNumList(document.getElementById("rz").value);
+
+        const moved = document.getElementById("moved").value;
+        const clashScale = Number(document.getElementById("clashScale").value);
+
+        if (!Number.isFinite(clashScale) || clashScale <= 0) {
+          throw new Error("Clash scale must be a positive number");
+        }
+
+        state.dimers = [];
+
+        for (const tx of txs) {
+          for (const ty of tys) {
+            for (const tz of tzs) {
+              for (const rx of rxs) {
+                for (const ry of rys) {
+                  for (const rz of rzs) {
+                    let aXYZ = monA.xyz.map(p => [...p]);
+                    let bXYZ = monB.xyz.map(p => [...p]);
+
+                    if (moved === "B") {
+                      bXYZ = applyRotations(bXYZ, rx, ry, rz).map(p => [p[0] + tx, p[1] + ty, p[2] + tz]);
+                    } else {
+                      aXYZ = applyRotations(aXYZ, rx, ry, rz).map(p => [p[0] + tx, p[1] + ty, p[2] + tz]);
+                    }
+
+                    if (hasClash(monA.symbols, aXYZ, monB.symbols, bXYZ, clashScale)) {
+                      continue;
+                    }
+
+                    state.dimers.push({
+                      symbols: [...monA.symbols, ...monB.symbols],
+                      xyz: [...aXYZ, ...bXYZ],
+                      meta: {
+                        idx: state.dimers.length,
+                        tx, ty, tz, rx, ry, rz, moved,
+                        n_atoms_a: monA.symbols.length,
+                        n_atoms_b: monB.symbols.length
+                      }
+                    });
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        refreshDimerList();
+        setStatus(`Done. ${state.dimers.length} valid dimers generated.`);
+      } catch (e) {
+        setStatus("Generation error: " + e.message);
+      }
+    }
+
+    async function previewDimer() {
+      const idx = Number(document.getElementById("dimerList").value);
+      const d = state.dimers[idx];
+
+      if (!d) {
+        setStatus("Select a dimer first.");
+        return;
+      }
+
+      await renderStructure(d.symbols, d.xyz, `Dimer #${d.meta.idx}`);
+      updateDetails();
+      setStatus(`Previewing dimer #${d.meta.idx}.`);
+    }
+
+    function downloadBlob(name, blob) {
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    }
+
+    function downloadFile(name, text) {
+      const blob = new Blob([text], { type: "chemical/x-xyz" });
+      downloadBlob(name, blob);
+    }
+
+    function exportSelected() {
+      const idx = Number(document.getElementById("dimerList").value);
+      const d = state.dimers[idx];
+
+      if (!d) {
+        setStatus("Select a dimer first.");
+        return;
+      }
+
+      const m = d.meta;
+      const name = `idx${String(m.idx).padStart(4,"0")}_tx${m.tx}_ty${m.ty}_tz${m.tz}_rx${m.rx}_ry${m.ry}_rz${m.rz}_${m.moved}.xyz`;
+
+      downloadFile(name, toXYZ(d.symbols, d.xyz, JSON.stringify(m)));
+      setStatus(`Exported ${name}.`);
+    }
+
+    function exportAll() {
+      if (!state.dimers.length) {
+        setStatus("No dimers generated yet.");
+        return;
+      }
+
+      state.dimers.forEach(d => {
+        const m = d.meta;
+        const name = `idx${String(m.idx).padStart(4,"0")}_tx${m.tx}_ty${m.ty}_tz${m.tz}_rx${m.rx}_ry${m.ry}_rz${m.rz}_${m.moved}.xyz`;
+        downloadFile(name, toXYZ(d.symbols, d.xyz, JSON.stringify(m)));
+      });
+
+      setStatus(`Triggered download for ${state.dimers.length} dimers.`);
+    }
+
+    async function exportZip() {
+      if (!state.dimers.length) {
+        setStatus("No dimers generated yet.");
+        return;
+      }
+
+      if (typeof JSZip === "undefined") {
+        setStatus("ZIP library (JSZip) not loaded.");
+        return;
+      }
+
+      try {
+        setStatus(`Building ZIP with ${state.dimers.length} dimers...`);
+
+        const zip = new JSZip();
+        const folder = zip.folder("dimers");
+
+        state.dimers.forEach(d => {
+          const m = d.meta;
+          const name = `idx${String(m.idx).padStart(4,"0")}_tx${m.tx}_ty${m.ty}_tz${m.tz}_rx${m.rx}_ry${m.ry}_rz${m.rz}_${m.moved}.xyz`;
+          folder.file(name, toXYZ(d.symbols, d.xyz, JSON.stringify(m)));
+        });
+
+        const blob = await zip.generateAsync({
+          type: "blob",
+          compression: "DEFLATE",
+          compressionOptions: { level: 6 }
+        });
+
+        const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+        const outName = `dimers_${stamp}.zip`;
+        downloadBlob(outName, blob);
+        setStatus(`Exported ${outName}.`);
+      } catch (e) {
+        setStatus("ZIP export error: " + e.message);
+      }
+    }
+
+    document.getElementById("fileA").addEventListener("change", async () => {
+      await loadMonomer("A");
+    });
+
+    document.getElementById("fileB").addEventListener("change", async () => {
+      await loadMonomer("B");
+    });
+
+    document.getElementById("previewA").onclick = async () => {
+      try {
+        await previewMonomer("A");
+      } catch (e) {
+        setStatus("Viewer error: " + e.message);
+      }
+    };
+
+    document.getElementById("previewB").onclick = async () => {
+      try {
+        await previewMonomer("B");
+      } catch (e) {
+        setStatus("Viewer error: " + e.message);
+      }
+    };
+
+    document.getElementById("previewSelectedMonomer").onclick = async () => {
+      const which = document.getElementById("whichMono").value;
+      try {
+        await previewMonomer(which);
+      } catch (e) {
+        setStatus("Viewer error: " + e.message);
+      }
+    };
+
+    document.getElementById("applyOrientation").onclick = async () => {
+      await applyOrientationAction();
+    };
+
+    document.getElementById("generate").onclick = generateDimers;
+    document.getElementById("dimerList").onchange = updateDetails;
+
+    document.getElementById("previewDimer").onclick = async () => {
+      try {
+        await previewDimer();
+      } catch (e) {
+        setStatus("Viewer error: " + e.message);
+      }
+    };
+
+    document.getElementById("exportSelected").onclick = exportSelected;
+    document.getElementById("exportAll").onclick = exportAll;
+    document.getElementById("exportZip").onclick = () => { exportZip(); };
+
+    document.getElementById("styleStick").onclick = async () => {
+      try {
+        await setViewerStyle("stick");
+      } catch (e) {
+        setStatus("Viewer error: " + e.message);
+      }
+    };
+
+    document.getElementById("styleSphere").onclick = async () => {
+      try {
+        await setViewerStyle("sphere");
+      } catch (e) {
+        setStatus("Viewer error: " + e.message);
+      }
+    };
+
+    document.getElementById("zoomBtn").onclick = async () => {
+      try {
+        const v = await ensureViewer();
+        v.zoomTo();
+        v.render();
+      } catch (e) {
+        setStatus("Viewer error: " + e.message);
+      }
+    };
+
+    document.getElementById("toggleLabels").onclick = async () => {
+      try {
+        await toggleLabels();
+      } catch (e) {
+        setStatus("Viewer error: " + e.message);
+      }
+    };
+
+    updateLoadedInfo();
+
+    ensureViewer().catch(err => {
+      setStatus("Viewer initialization error: " + err.message);
+    });
+  </script>
+</body>
+</html>
+

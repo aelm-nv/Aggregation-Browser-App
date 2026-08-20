@@ -10,7 +10,7 @@ Dimer Browser inherits the **systematic-search philosophy** of Elmanova, Jahn, a
 
 In particular, the app is motivated by the idea that aggregate structures should be explored reproducibly across explicit translational and rotational grids rather than selected only by intuition. The paper combines systematic dimer sampling with quantum-chemical energy evaluation, minimum detection, structural clustering, and optimization. This repository currently implements the **geometry-generation and inspection layer only**; it does not perform DFT calculations, rank structures by energy, identify minima, cluster structures, or reproduce the complete published workflow.
 
-The reference above is an acknowledgment of methodological inspiration. It does not imply affiliation with or endorsement by the paper’s authors, their institutions, or the American Chemical Society.
+The reference above is an acknowledgment of methodological inspiration.
 
 ## Features
 

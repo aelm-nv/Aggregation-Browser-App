@@ -2,7 +2,7 @@
 
 Dimer Browser is a browser-based workbench for systematically constructing, inspecting, and exporting molecular dimer geometries. It accepts XYZ structures, establishes a reproducible coordinate frame, and samples user-defined translations and rotations while rejecting geometries with excessive intermonomer overlap.
 
-The screenshots below follow the two main visual checks in the workflow: first establish the monomer coordinate frame, then inspect the generated dimer and its intermolecular contact.
+There are two main visual checks in the workflow: first establish the monomer coordinate frame, then inspect the generated dimer and its intermolecular contact.
 
 ## Scientific philosophy
 

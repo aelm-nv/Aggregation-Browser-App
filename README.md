@@ -2,7 +2,7 @@
 
 Dimer Browser is a browser-based workbench for systematically constructing, inspecting, and exporting molecular dimer geometries. It accepts XYZ structures, establishes a reproducible coordinate frame, and samples user-defined translations and rotations while rejecting geometries with excessive intermonomer overlap.
 
-![Dimer Browser interface](docs/images/dimer-browser-interface.png)
+The screenshots below follow the two main visual checks in the workflow: first establish the monomer coordinate frame, then inspect the generated dimer and its intermolecular contact.
 
 ## Scientific philosophy
 
@@ -58,6 +58,10 @@ The four atoms define an xy molecular plane and a z stacking direction as follow
 
 The A→B and C→D vectors must be nonzero and must not be parallel. Choose chemically meaningful atoms that define two stable, in-plane molecular directions—for example, one in-plane axis for A→B and a second, nonparallel in-plane axis for C→D. The order of each atom pair controls the positive direction of its axis and, consequently, the sign of the stacking-normal z axis.
 
+![Oriented monomer with RGB coordinate axes](docs/images/monomer-orientation.png)
+
+*Monomer-orientation check. The RGB triad shows x in red, y in green, and the π-stacking normal z in blue. Confirm that the molecular plane lies approximately in xy before defining the grid.*
+
 Choose the origin with **Center**:
 
 - **centroid** subtracts the arithmetic mean of all atomic coordinates.
@@ -103,6 +107,10 @@ The default value is `0.75`. Increasing it rejects more structures and enforces 
 Select **Generate dimers**. The previous result list is replaced, all Cartesian products of the entered grid values are evaluated, and clashing candidates are omitted. The status box reports the number of valid dimers retained.
 
 Each entry in **Generated dimers** displays its zero-based structure index and the translation and rotation values that produced it. Select an entry and then select **Preview dimer**. Its combined coordinates appear in the central viewer, while **Details** shows the complete JSON metadata, including the moved monomer and the atom counts of A and B.
+
+![Generated dimer with RGB axes and van der Waals spheres](docs/images/dimer-vdw-preview.png)
+
+*Generated-dimer check. The translucent full-size VdW spheres reveal whether the atomic envelopes are separated, touching, or overlapping, while the RGB axes confirm the stacking direction.*
 
 The viewer controls are:
 

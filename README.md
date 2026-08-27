@@ -50,13 +50,13 @@ Use **Preview loaded monomer A** or **Preview loaded monomer B** to inspect the 
 
 Orienting both monomers consistently makes the translation and rotation grid scientifically interpretable. In the **Orientation** section, first choose monomer A or B. Enter four atom numbers in **A index**, **B index**, **C index**, and **D index**. These numbers are 1-based: the first atom line in the XYZ file is atom 1.
 
-The four atoms define the axes as follows:
+The four atoms define an xy molecular plane and a z stacking direction as follows:
 
 - The vector from atom A to atom B becomes the positive x direction.
-- The vector from atom C to atom D provides the initial z direction.
-- The C→D vector is made perpendicular to the x axis, and the remaining y and z axes are constructed as an orthonormal, right-handed coordinate frame.
+- The vector from atom C to atom D provides the initial positive y direction.
+- The C→D vector is made perpendicular to the x axis, and z is calculated from the right-handed cross product **x × y**. For two in-plane reference vectors, the resulting z axis is therefore normal to the molecular plane and is the π-stacking direction.
 
-The A→B and C→D vectors must be nonzero and must not be parallel. Choose chemically meaningful atoms that define stable molecular directions—for example, atoms along an in-plane molecular axis for A and B and atoms defining a second, nonparallel direction for C and D.
+The A→B and C→D vectors must be nonzero and must not be parallel. Choose chemically meaningful atoms that define two stable, in-plane molecular directions—for example, one in-plane axis for A→B and a second, nonparallel in-plane axis for C→D. The order of each atom pair controls the positive direction of its axis and, consequently, the sign of the stacking-normal z axis.
 
 Choose the origin with **Center**:
 
@@ -86,7 +86,7 @@ Keep early trial grids small. Grid size grows multiplicatively, and clash detect
 
 Use **Moved monomer** to specify which monomer receives the transformation. The other monomer remains fixed. For each candidate, the selected monomer is rotated about the current coordinate origin in x-then-y-then-z order and is subsequently translated by `(tx, ty, tz)`. This is why centering and orienting the monomers before grid generation is important.
 
-The default settings—`tz = 3.5` and `rz = 0,90,180,270`, with all other values zero—place the moved monomer 3.5 Å along z and sample four rotations around that axis.
+The default settings—`tz = 3.5` and `rz = 0,90,180,270`, with all other values zero—place the moved monomer 3.5 Å along the π-stacking normal and sample four in-plane orientations around that axis.
 
 ### 4. Choose the clash threshold
 
@@ -107,7 +107,9 @@ Each entry in **Generated dimers** displays its zero-based structure index and t
 The viewer controls are:
 
 - **Stick** displays bonds and atoms in stick representation.
-- **Sphere** displays a space-filling sphere representation.
+- **Sphere** displays a compact sphere representation at 35% of the element radii.
+- **VdW surfaces** overlays translucent, full-size van der Waals spheres. Two spheres that just meet represent van der Waals contact; visible overlap indicates a separation shorter than the sum of the two radii. Select **Hide VdW** to remove the overlay. This is independent of the geometric clash filter: the display uses full radii, while generated candidates are filtered using the selected clash scale.
+- **RGB axes** shows an origin-centered coordinate triad: x is red, y is green, and z is blue. The arrows follow the coordinate system used by the translation and rotation grid. Select **Hide axes** to remove it.
 - **Zoom** fits the current structure into the viewer.
 - **Atom labels** toggles element symbols and 1-based atom numbers.
 
@@ -131,6 +133,7 @@ The second line of every exported XYZ file contains the same generation metadata
 - Orient both partners consistently before a heterodimer search.
 - Start with a coarse grid, inspect the retained structures, and then construct a finer grid around promising regions.
 - Use a separation axis appropriate to the aggregate motif. For approximately planar π systems oriented in the xy plane, z is often the natural stacking direction.
+- After applying orientation, enable **RGB axes** and verify that the molecular plane lies approximately in xy and the blue z arrow is normal to it before generating a stacking grid.
 - Record the input files, orientation atoms, center mode, grid lists, clash scale, and app version for reproducibility.
 - Use ZIP export for large grids to avoid browser multiple-download restrictions.
 - Treat all generated structures as candidates requiring subsequent energy evaluation and geometry refinement.
@@ -155,6 +158,12 @@ The second line of every exported XYZ file contains the same generation metadata
 
 Generated geometries are candidates, not predicted stable structures. Use an appropriate electronic-structure or molecular-mechanics workflow to evaluate energies, locate minima, group redundant geometries, and refine structures before drawing scientific conclusions.
 
+## Update note: z-axis stacking convention
+
+Version 1.1.0 changes the orientation convention used by earlier versions. Previously, A→B defined x and C→D defined z, which placed a molecule described by two in-plane reference vectors in the xz plane and made y the plane normal. The application now maps A→B to x and C→D to y; the right-handed normal **x × y** becomes z. As a result, `tz` now directly controls stacking separation and `rz` controls rotation around the stacking axis after orientation.
+
+Existing input XYZ files remain compatible, but grids prepared with the earlier axis convention should be reviewed before reuse. Reapply orientation with the intended in-plane A→B and C→D atom pairs, verify the RGB axes, and translate old y-stacking grids to the corresponding z-axis fields where necessary.
+
 ## GitHub Pages
 
 In the repository settings, choose **Pages → Deploy from a branch**, select the default branch and `/ (root)`. The repository is already arranged for root-level static hosting.
@@ -168,4 +177,3 @@ If this application contributes to scientific work, cite the repository release 
 ## License
 
 Released under the [MIT License](LICENSE).
-

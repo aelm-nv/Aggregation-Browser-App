@@ -372,6 +372,8 @@
             <div class="viewer-toolbar">
               <button class="ghost" id="styleStick">Stick</button>
               <button class="ghost" id="styleSphere">Sphere</button>
+              <button class="ghost" id="toggleVdw" title="Show translucent full-size van der Waals spheres">VdW surfaces</button>
+              <button class="ghost" id="toggleAxes" title="Show coordinate axes: X red, Y green, Z blue">RGB axes</button>
               <button class="ghost" id="zoomBtn">Zoom</button>
               <button class="ghost" id="toggleLabels">Atom labels</button>
               <span class="muted" id="viewerLabel">No structure loaded</span>
@@ -411,6 +413,8 @@
       viewer: null,
       currentStyle: "stick",
       showLabels: false,
+      showVdw: false,
+      showAxes: false,
       currentModel: null
     };
 
@@ -548,22 +552,22 @@
       return xyz.map(p => sub(p, ctr));
     }
 
-    function rotationMatrixFromAxes(xAxis, zGuess) {
+    function rotationMatrixFromAxes(xAxis, yGuess) {
       const ex = unit(xAxis);
-      const proj = sub(zGuess, ex.map(v => v * dot(zGuess, ex)));
+      const proj = sub(yGuess, ex.map(v => v * dot(yGuess, ex)));
 
       if (norm(proj) < 1e-12) {
         throw new Error("Second axis parallel to first");
       }
 
-      const ez = unit(proj);
-      const ey = unit(cross(ez, ex));
-      const ez2 = unit(cross(ex, ey));
+      const ey = unit(proj);
+      const ez = unit(cross(ex, ey));
+      const ey2 = unit(cross(ez, ex));
 
       return [
         [ex[0], ex[1], ex[2]],
-        [ey[0], ey[1], ey[2]],
-        [ez2[0], ez2[1], ez2[2]]
+        [ey2[0], ey2[1], ey2[2]],
+        [ez[0], ez[1], ez[2]]
       ];
     }
 
@@ -574,8 +578,8 @@
     function orientMonomer(mono, a, b, c, d, centerMode) {
       const xyz0 = centerCoords(mono.xyz, centerMode, a, b, c, d);
       const xAxis = sub(xyz0[b], xyz0[a]);
-      const zGuess = sub(xyz0[d], xyz0[c]);
-      const M = rotationMatrixFromAxes(xAxis, zGuess);
+      const yGuess = sub(xyz0[d], xyz0[c]);
+      const M = rotationMatrixFromAxes(xAxis, yGuess);
       return { ...mono, xyz: xyz0.map(p => applyMatRow(p, M)) };
     }
 
@@ -664,13 +668,7 @@
 
       state.currentModel = { symbols, xyz, label };
 
-      if (state.currentStyle === "sphere") {
-        viewer.setStyle({}, { sphere: { scale: 0.35 } });
-      } else {
-        viewer.setStyle({}, { stick: { radius: 0.16 } });
-      }
-
-      if (state.showLabels) addAtomLabels();
+      applyViewerVisuals();
 
       viewer.zoomTo();
       viewer.render();
@@ -681,24 +679,76 @@
       state.currentStyle = style;
       const viewer = await ensureViewer();
 
+      applyViewerVisuals();
+      viewer.render();
+    }
+
+    function applyViewerVisuals() {
+      const viewer = state.viewer;
+      if (!viewer) return;
+
       viewer.setStyle({});
-      if (style === "sphere") {
+      if (state.showVdw && state.currentStyle === "stick") {
+        viewer.setStyle({}, {
+          stick: { radius: 0.12 },
+          sphere: { scale: 1.0, opacity: 0.42 }
+        });
+      } else if (state.showVdw) {
+        viewer.setStyle({}, { sphere: { scale: 1.0, opacity: 0.62 } });
+      } else if (state.currentStyle === "sphere") {
         viewer.setStyle({}, { sphere: { scale: 0.35 } });
       } else {
         viewer.setStyle({}, { stick: { radius: 0.16 } });
       }
 
-      if (state.showLabels) addAtomLabels();
-      else viewer.removeAllLabels();
+      refreshViewerAnnotations();
+    }
 
-      viewer.render();
+    function axisLengthForModel() {
+      if (!state.currentModel || !state.currentModel.xyz.length) return 3;
+      let maxAbs = 0;
+      state.currentModel.xyz.forEach(p => {
+        maxAbs = Math.max(maxAbs, Math.abs(p[0]), Math.abs(p[1]), Math.abs(p[2]));
+      });
+      return Math.max(2.5, Math.min(8, maxAbs * 0.45 || 3));
+    }
+
+    function addAxes() {
+      const viewer = state.viewer;
+      if (!viewer) return;
+
+      const length = axisLengthForModel();
+      const origin = { x: 0, y: 0, z: 0 };
+      const axes = [
+        { label: "X", color: "#e53935", end: { x: length, y: 0, z: 0 } },
+        { label: "Y", color: "#2eaf50", end: { x: 0, y: length, z: 0 } },
+        { label: "Z", color: "#1976d2", end: { x: 0, y: 0, z: length } }
+      ];
+
+      axes.forEach(axis => {
+        viewer.addArrow({
+          start: origin,
+          end: axis.end,
+          radius: Math.max(0.045, length * 0.018),
+          radiusRatio: 2.2,
+          mid: 0.78,
+          color: axis.color
+        });
+        viewer.addLabel(axis.label, {
+          position: axis.end,
+          fontColor: axis.color,
+          fontSize: 14,
+          backgroundOpacity: 0,
+          showBackground: false,
+          inFront: true
+        });
+      });
     }
 
     function addAtomLabels() {
       const viewer = state.viewer;
       if (!viewer || !state.currentModel) return;
 
-      viewer.removeAllLabels();
 
       state.currentModel.xyz.forEach((p, i) => {
         viewer.addLabel(String(i + 1), {
@@ -711,15 +761,49 @@
       });
     }
 
+    function refreshViewerAnnotations() {
+      const viewer = state.viewer;
+      if (!viewer) return;
+      viewer.removeAllLabels();
+      viewer.removeAllShapes();
+      if (state.showAxes) addAxes();
+      if (state.showLabels) addAtomLabels();
+    }
+
     async function toggleLabels() {
       state.showLabels = !state.showLabels;
       const btn = document.getElementById("toggleLabels");
       btn.textContent = state.showLabels ? "Hide labels" : "Atom labels";
 
       const viewer = await ensureViewer();
-      if (state.showLabels) addAtomLabels();
-      else viewer.removeAllLabels();
+      refreshViewerAnnotations();
       viewer.render();
+    }
+
+    async function toggleAxes() {
+      state.showAxes = !state.showAxes;
+      const btn = document.getElementById("toggleAxes");
+      btn.textContent = state.showAxes ? "Hide axes" : "RGB axes";
+
+      const viewer = await ensureViewer();
+      refreshViewerAnnotations();
+      viewer.render();
+      setStatus(state.showAxes
+        ? "Showing coordinate axes: X red, Y green, Z blue."
+        : "Coordinate axes hidden.");
+    }
+
+    async function toggleVdw() {
+      state.showVdw = !state.showVdw;
+      const btn = document.getElementById("toggleVdw");
+      btn.textContent = state.showVdw ? "Hide VdW" : "VdW surfaces";
+
+      const viewer = await ensureViewer();
+      applyViewerVisuals();
+      viewer.render();
+      setStatus(state.showVdw
+        ? "Showing full-size translucent van der Waals spheres. Touching surfaces indicate van der Waals contact."
+        : "Van der Waals spheres hidden.");
     }
 
     async function readXYZFromInput(input) {
@@ -809,7 +893,7 @@
         else state.monoB = out;
 
         updateLoadedInfo();
-        setStatus(`Applied orientation to monomer ${which}.`);
+        setStatus(`Applied orientation to monomer ${which}: A→B is X, C→D is Y, and the stacking normal is Z.`);
       } catch (e) {
         setStatus("Orientation error: " + e.message);
       }
@@ -1101,6 +1185,22 @@
       }
     };
 
+    document.getElementById("toggleAxes").onclick = async () => {
+      try {
+        await toggleAxes();
+      } catch (e) {
+        setStatus("Viewer error: " + e.message);
+      }
+    };
+
+    document.getElementById("toggleVdw").onclick = async () => {
+      try {
+        await toggleVdw();
+      } catch (e) {
+        setStatus("Viewer error: " + e.message);
+      }
+    };
+
     updateLoadedInfo();
 
     ensureViewer().catch(err => {
@@ -1109,4 +1209,3 @@
   </script>
 </body>
 </html>
-

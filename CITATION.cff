@@ -9,8 +9,8 @@ authors:
     given-names: Arghyadeb
   - family-names: Presselt
     given-names: Martin
-version: 1.0.0
-date-released: 2026-08-20
+version: 1.1.0
+date-released: 2026-08-27
 license: MIT
 abstract: "A browser-based tool for systematic generation, inspection, and export of molecular dimer geometries."
 keywords:
